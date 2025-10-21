@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  CREATOR
+}
+
+model CreatorProfile {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+  bio    String?
+  contents Content[]
+  markets Market[]
+}
+
+model Content {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  mediaUrl    String
+  coverUrl    String?
+  creator     CreatorProfile @relation(fields: [creatorId], references: [id])
+  creatorId   String
+  createdAt   DateTime       @default(now())
+  market      Market?        @relation("ContentMarket")
+  holdings Holding[]
+}
+
+model Market {
+  id            String   @id @default(cuid())
+  creator CreatorProfile @relation(fields: [creatorId], references: [id])
+  creatorId String
+  content       Content  @relation("ContentMarket", fields: [contentId], references: [id])
+  contentId     String   @unique
+  priceCents    Int 
+  quantityTotal Int
+  quantityLeft  Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  trades Trade[]
+}
+
+model Trade {
+  id             String   @id @default(cuid())
+  user           User     @relation(fields: [userId], references: [id])
+  userId         String
+  market         Market   @relation(fields: [marketId], references: [id])
+  marketId       String
+  units          Int
+  totalPaidCents Int
+  createdAt      DateTime @default(now())
+}
+
+model Holding {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  content   Content  @relation(fields: [contentId], references: [id])
+  contentId String
+  units     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Wallet {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String   @unique
+  balanceCents Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  hashedPassword String
+  role           Role     @default(USER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  creatorProfile CreatorProfile?
+  wallet         Wallet?
+  trades         Trade[]
+  holdings       Holding[]
+  sessions Session[]
+  accounts Account[]
+}
+
+model Account {
+  id String @id @default(cuid())
+  userId String
+  type String
+  provider String
+  providerAccountId String
+  refresh_token String? @map("refresh_token")
+  access_token String? @map("access_token")
+  expires_at Int? @map("expires_at")
+  token_type String? @map("token_type")
+  scope String?
+  id_token String? @map("id_token")
+  session_state String? @map("session_state")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId]) 
+}
+
+model Session {
+  id String @id @default(cuid())
+  sessionToken String @unique
+  userId String
+  expires DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token String @unique
+  expires DateTime
+
+  @@unique([identifier, token])
+}
